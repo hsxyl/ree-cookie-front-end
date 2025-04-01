@@ -1,0 +1,170 @@
+import { cookieActor } from "@/canister/cookie/actor";
+import { useLaserEyes } from "@omnisat/lasereyes"
+import { useEffect, useState } from "react";
+import { Skeleton } from "./ui/skeleton";
+import LinearProgress, { LinearProgressProps } from '@mui/material/LinearProgress';
+import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
+import { EXCHANGE_ID } from "@/constants";
+import { Orchestrator } from "@/canister/orchestrator";
+import { Register } from "./claim";
+import { useWalletBtcUtxos } from "@/hooks/use-utxos";
+
+
+export function Game() {
+
+    const { address, paymentAddress } = useLaserEyes();
+    const btcUtxos = useWalletBtcUtxos();
+    const [isRegistered, setIsRegistered] = useState<boolean>(false)
+    const [loading, setLoading] = useState<boolean>(true)
+    const [gameStartTime, setGameStartTime] = useState<bigint>(BigInt(0))
+    const [gameEndTime, setGameEndTime] = useState<bigint>(BigInt(0))
+    const [lastClaimTime, setLastClaimTime] = useState<bigint>(BigInt(0))
+    const [claimCoolingDown, setClaimCoolingDown] = useState<bigint>(BigInt(0))
+
+    useEffect(() => {
+
+        (async () => {
+            if (!address) {
+                return
+            }
+            setLoading(false)
+            const game_and_gamer_infos = await cookieActor.get_game_and_gamer_infos(address)
+            const gamer_opt = game_and_gamer_infos.gamer
+            if (gamer_opt.length === 0) {
+                setIsRegistered(false)
+            } else {
+                setIsRegistered(true)
+            }
+            const gamer = gamer_opt[0]!
+            setGameStartTime(game_and_gamer_infos.game_start_time)
+            setGameEndTime(game_and_gamer_infos.game_duration + game_and_gamer_infos.game_start_time)
+            setLastClaimTime(gamer.last_click_time)
+            setClaimCoolingDown(game_and_gamer_infos.claim_cooling_down)
+        })()
+    }, [address])
+
+    return <div className="flex flex-col items-center justify-center h-screen">
+        <GameProgress loading={loading} gameEndTime={gameEndTime} gameStartTime={gameStartTime} />
+        <img src="/icon.png" />
+        {
+            !loading ?
+                (isRegistered ?
+                    <Claim lastClaimTime={lastClaimTime} claimCoolingDown={claimCoolingDown} />
+                    :
+                    <Register
+                        paymentAddress={paymentAddress}
+                        paymentAddressUtxos={btcUtxos} />
+                    // <button>Register</button>
+                )
+
+                : <Skeleton />
+        }
+    </div>
+}
+
+function GameProgress({
+    loading,
+    gameStartTime,
+    gameEndTime
+}: {
+    loading: boolean,
+    gameStartTime: bigint,
+    gameEndTime: bigint
+}) {
+    const [progress, setProgress] = useState(0);
+
+    // let past_time = BigInt(Math.floor(Date.now() / 1000)) - gameStartTime
+    // let percentage = (Date.now() / 1000 - Number(gameStartTime)) / (1 + Number(gameEndTime) - Number(gameStartTime)) * 100
+    // console.log({
+    //     percentage,
+    //     past_time,
+    //     gameStartTime,
+    //     gameEndTime
+    // })
+
+    useEffect(() => {
+        if (loading || gameStartTime === BigInt(0)) {
+            return
+        }
+        const timer = setInterval(() => {
+            // const percentage = (BigInt(Math.floor(Date.now() / 1000)) - gameStartTime) / (BigInt(1) + gameEndTime - gameStartTime) * BigInt(100)
+            const percentage = (Date.now() / 1000 - Number(gameStartTime)) / (1 + Number(gameEndTime) - Number(gameStartTime)) * 100
+            // const percentage = 100
+            console.log({ percentage })
+            setProgress(percentage)
+        }, 800);
+        return () => {
+            clearInterval(timer);
+        };
+
+    }, [loading, gameStartTime])
+
+    return <div>
+        {
+            !loading &&
+            <div>
+                <LinearProgressWithLabel value={progress} endTime={Number(gameEndTime)}/>
+
+            </div>
+
+        }
+    </div>
+}
+
+function Claim({
+    lastClaimTime,
+    claimCoolingDown
+}: {
+    lastClaimTime: bigint,
+    claimCoolingDown: bigint
+}) {
+
+    return <div>
+        {
+            lastClaimTime + claimCoolingDown > BigInt(Date.now()) ?
+                <button disabled>cooling down</button>
+                :
+                <button>ready to claim</button>
+        }
+    </div>
+
+}
+
+function LinearProgressWithLabel(props: LinearProgressProps & { value: number, endTime: number }) {
+    return (
+
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ minWidth: 35, margin: 5 }}>
+                <Typography
+                    variant="h6"
+                    sx={{ color: 'text.secondary' }}
+                >Game Count Down</Typography>
+            </Box>
+            <Box sx={{ width: '500px', mr: 2 }}>
+                <LinearProgress variant="determinate" {...props} />
+            </Box>
+            <Box sx={{ minWidth: 35 }}>
+                <Typography
+                    variant="body2"
+                    sx={{ color: 'text.secondary' }}
+                >{formatCountdownWithDays(Math.floor(props.endTime - Date.now()/1000))}</Typography>
+            </Box>
+        </Box>
+    );
+}
+
+function formatCountdownWithDays(seconds: number) {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+  
+    const pad = (num: number) => num.toString().padStart(2, '0');
+  
+    if (days > 0) {
+      return `${days}day ${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
+    } else {
+      return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
+    }
+  }
