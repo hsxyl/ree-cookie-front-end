@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "testnet": "DFX_NETWORK=ic PROVIDER=mwm4a-eiaaa-aaaah-aebnq-cai next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -33,10 +34,12 @@
     "@types/node": "^16.18.126",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
+    "antd": "^5.19.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "decimal.js": "^10.5.0",
     "ecpair": "^3.0.0-rc.0",
+    "ic-siwb-lasereyes-connector": "^0.1.9",
     "immer": "^9.0.7",
     "jotai": "^2.11.0",
     "lucide-react": "^0.485.0",
@@ -50,10 +53,10 @@
     "web-vitals": "^2.1.4"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
     "tailwindcss": "^4"
   }
 }

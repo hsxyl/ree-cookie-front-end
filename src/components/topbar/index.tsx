@@ -8,11 +8,14 @@ import { Skeleton } from "../ui/skeleton";
 import { useEffect, useState } from "react";
 // import { MenuButton } from "./menu-button";
 import { AccountButton } from "./account-button";
-import { MyAuthClient } from "@/canister/internet-identity/ii-client";
+import { Bip322AuthClient } from "@/canister/internet-identity/ii-client";
+import ConnectButton from "../ConnectButton";
+import { useSiwbIdentity } from "ic-siwb-lasereyes-connector";
 
 export function Topbar() {
-  const { address, isInitializing, connect, signMessage } = useLaserEyes();
+  const { address, connect, signMessage } = useLaserEyes();
   const [initialized, setInitialized] = useState(false);
+  const { isInitializing, identity } = useSiwbIdentity();
 
   useEffect(() => {
     if (isInitializing) {
@@ -38,13 +41,14 @@ export function Topbar() {
       <div className="flex-1 justify-end space-x-2 flex">
         {!initialized ? (
           <Skeleton className="h-9 w-24 rounded-full" />
-        ) : !address ? (
-          <Button
-            className="rounded-lg border-2 border-blue-500 bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 hover:border-blue-600 transition-colors"
-            onClick={() => connect(UNISAT)}
-          >
-            Connect wallet
-          </Button>
+        ) : (!identity||!address) ? (
+          <ConnectButton />
+          // <Button
+          //   className="rounded-lg border-2 border-blue-500 bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 hover:border-blue-600 transition-colors"
+          //   onClick={() => connect(UNISAT)}
+          // >
+          //   Connect wallet
+          // </Button>
         ) : (
           <AccountButton />
         )}

@@ -1,4 +1,4 @@
-import { Orchestrator } from "../../canister/orchestrator";
+import { ocActor } from "@/canister/orchestrator/actor";
 import { BITCOIN, UTXO_DUST } from "../../constants";
 import { AddressType, InputCoin, OutputCoin, ToSignInput, TxOutputType, UnspentOutput } from "../../types";
 import { addressTypeToString, getAddressType } from "../address";
@@ -17,7 +17,7 @@ export async function registerTx({
     poolBtcUtxo: UnspentOutput,
     paymentAddress: string,
     poolAddress: string,
-    feeRate: number,
+    feeRate: bigint,
     registerFee: bigint
 }) {
     let userBtcAmount = userBtcUtxos.reduce((acc, utxo) => acc + BigInt(utxo.satoshis), BigInt(0))
@@ -28,7 +28,7 @@ export async function registerTx({
     let inputTypes: TxOutputType[] = []
     let outputTypes: TxOutputType[] = []
 
-    tx.setFeeRate(feeRate)
+    tx.setFeeRate(Number(feeRate.toString()))
     tx.setEnableRBF(false);
     tx.setChangeAddress(paymentAddress);
     
@@ -56,11 +56,24 @@ export async function registerTx({
         addressTypeToString(getAddressType(paymentAddress)),
     )
 
-    let fee = await Orchestrator.getEstimateMinTxFee({
-        input_types: inputTypes,
-        pool_address: poolAddress,
-        output_types: outputTypes,
+    let fee = await ocActor.estimate_min_tx_fee({
+        'input_types': inputTypes, 
+        'pool_address': [poolAddress],
+        'output_types': outputTypes,
+    }).then((res: { 'Ok' : bigint } | {'Err': string}) => {
+        if ('Err' in res) {
+            throw new Error(res.Err);
+        }
+        return res.Ok
+    }).catch((err) => {
+        console.log("invoke error", err);
+        throw err;
     });
+    // let fee = await Orchestrator.getEstimateMinTxFee({
+    //     input_types: inputTypes,
+    //     pool_address: poolAddress,
+    //     output_types: outputTypes,
+    // });
     // let fee = BigInt(221);
 
     console.log({fee})
@@ -125,7 +138,7 @@ export async function registerTx({
             from: paymentAddress,
             coin: {
                 id: BITCOIN.id,
-                value: userBtcAmount,
+                value: registerFee,
             },
         },
     ];

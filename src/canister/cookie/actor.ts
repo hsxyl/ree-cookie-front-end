@@ -1,4 +1,4 @@
-import { Actor, HttpAgent } from "@dfinity/agent";
+import { Actor, ActorSubclass, HttpAgent, Identity } from "@dfinity/agent";
 import { ICP_HOST } from "../../constants";
 import { idlFactory, _SERVICE as CookieService } from "./service.did";
 
@@ -10,3 +10,15 @@ export const cookieActor = Actor.createActor<CookieService>(idlFactory, {
   }),
   canisterId: COOKIE_CANISTER_ID,
 });
+
+export function cookieActorWithIdentity(
+  identity: Identity
+): ActorSubclass<CookieService>{
+  return Actor.createActor<CookieService>(idlFactory, {
+    agent: HttpAgent.createSync({
+      host: ICP_HOST,
+      identity
+    }),
+    canisterId: COOKIE_CANISTER_ID,
+  })
+}

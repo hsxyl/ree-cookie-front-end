@@ -3,10 +3,11 @@ import { twMerge } from "tailwind-merge";
 import * as bitcoin from "bitcoinjs-lib";
 import { BITCOIN, UNKNOWN_COIN, NETWORK } from "../constants";
 import * as ecc from "@bitcoinerlab/secp256k1";
-import { Coin } from "../types";
+import { AddressType, Coin, UnspentOutput } from "../types";
 import axios from "axios";
 import Decimal from "decimal.js";
 import { toPsbtNetwork } from "./network";
+import { Utxo } from "@/canister/cookie/service.did";
 
 bitcoin.initEccLib(ecc);
 
@@ -89,4 +90,27 @@ export async function fetchCoinById(coinId: string): Promise<Coin> {
 export function isNumber(value: string) {
   const reg = /^[0-9]+\.?[0-9]*$/;
   return reg.test(value);
+}
+
+export function convertUtxo(utxo: Utxo, untweaked_key: string ): UnspentOutput {
+  const { address: poolAddress, output } = getP2trAressAndScript(untweaked_key);
+  return {
+    txid: utxo.txid,
+    vout: utxo.vout,
+    satoshis: utxo.sats,
+    scriptPk: output,
+    pubkey: "",
+    addressType: AddressType.P2TR,
+    address: poolAddress!,
+    // runes: {
+    //   id: utxo.maybe_rune;
+    //   amount: string;
+    // }[];
+    runes: utxo.maybe_rune.map((rune) => {
+      return {
+        id: rune.id,
+        amount: rune.value.toString(),
+      };
+    })
+  }
 }

@@ -38,7 +38,7 @@ export type DeployArgs = { 'Upgrade' : null } |
   { 'Init' : null };
 export interface EstimateMinTxFeeArgs {
   'input_types' : Array<TxOutputType>,
-  'pool_address' : string,
+  'pool_address' : Array<string>,
   'output_types' : Array<TxOutputType>,
 }
 export interface ExchangeMetadata {
@@ -53,7 +53,7 @@ export interface ExchangePool {
   'pool_key' : string,
 }
 export type ExchangeStatus = { 'Active' : null } |
-  { 'Halted' : { 'txid' : string } };
+  { 'Halted' : { 'reason' : string } };
 export interface ExchangeView {
   'status' : ExchangeStatus,
   'exchange_id' : string,
@@ -98,6 +98,7 @@ export interface Intention {
   'pool_address' : string,
 }
 export interface IntentionSet {
+  'tx_fee_in_sats' : bigint,
   'initiator_address' : string,
   'intentions' : Array<Intention>,
 }
@@ -106,10 +107,10 @@ export interface InvokeArgs {
   'psbt_hex' : string,
 }
 export interface InvokeLogView {
+  'rollback_results' : Array<string>,
   'invoke_args' : string,
   'invoke_time' : string,
   'finalized_time' : [] | [string],
-  'rollback_steps' : Array<RollbackStepLogView>,
   'confirmed_time' : [] | [string],
   'execution_steps' : Array<ExecutionStepLogView>,
   'processing_result' : Result_3,
@@ -140,7 +141,14 @@ export interface OrchestratorSettings {
   'min_btc_amount_for_utxo' : bigint,
   'rune_indexer_principal' : Principal,
   'max_intentions_per_invoke' : number,
+  'max_received_blocks_count' : number,
   'bitcoin_network' : BitcoinNetwork,
+}
+export interface OrchestratorStatus {
+  'last_block' : [] | [BlockBasic],
+  'pending_tx_count' : bigint,
+  'mempool_tx_fee_rate' : MempoolTxFeeRateView,
+  'invoke_paused' : boolean,
 }
 export interface OutpointWithValue {
   'maybe_rune' : [] | [CoinBalance],
@@ -170,14 +178,8 @@ export type Result_2 = { 'Ok' : CanisterInfoResponse } |
   { 'Err' : string };
 export type Result_3 = { 'Ok' : string } |
   { 'Err' : string };
-export interface RollbackStepLogView {
-  'result' : Result,
-  'exchange_id' : string,
-  'txid' : string,
-  'rollback_time' : string,
-  'maybe_return_time' : [] | [string],
-  'pool_address' : string,
-}
+export type Result_4 = { 'Ok' : Array<string> } |
+  { 'Err' : string };
 export interface SaveIncludedBlockForTxArgs {
   'txid' : string,
   'timestamp' : bigint,
@@ -196,18 +198,23 @@ export interface TxDetailView {
 }
 export type TxOutputType = { 'P2WPKH' : null } |
   { 'OpReturn' : bigint } |
+  { 'P2SH' : null } |
   { 'P2TR' : null };
 export type TxStatus = { 'Confirmed' : number } |
   { 'Rejected' : string } |
   { 'Pending' : null };
 export interface _SERVICE {
-  'clean_failed_invoke_logs' : ActorMethod<
+  'clear_failed_invoke_logs' : ActorMethod<
     [[] | [bigint], Array<string>],
     Result
   >,
   'estimate_min_tx_fee' : ActorMethod<[EstimateMinTxFeeArgs], Result_1>,
   'get_canister_info' : ActorMethod<[bigint], Result_2>,
   'get_exchange_pools' : ActorMethod<[], Array<ExchangePool>>,
+  'get_execute_tx_args_of_failed_invoke' : ActorMethod<
+    [string, bigint],
+    [] | [ExecuteTxArgs]
+  >,
   'get_failed_invoke_logs' : ActorMethod<
     [GetFailedInvokeLogArgs],
     Array<[string, InvokeLogView]>
@@ -217,25 +224,21 @@ export interface _SERVICE {
     [[] | [number]],
     Array<[string, string, [] | [number]]>
   >,
-  'get_mempool_tx_fee_rate' : ActorMethod<[], MempoolTxFeeRateView>,
   'get_received_blocks' : ActorMethod<
-    [[] | [number], [] | [boolean]],
+    [[] | [boolean]],
     Array<ReceivedBlockView>
   >,
   'get_registered_exchanges' : ActorMethod<[], Array<ExchangeView>>,
   'get_rejected_txs' : ActorMethod<[[] | [number]], Array<RejectedTxView>>,
   'get_settings' : ActorMethod<[], OrchestratorSettings>,
-  'get_sign_psbt_args_of_failed_invoke' : ActorMethod<
-    [string, bigint],
-    [] | [ExecuteTxArgs]
-  >,
+  'get_status' : ActorMethod<[], OrchestratorStatus>,
   'get_tx_for_outpoint' : ActorMethod<[string], [] | [TxDetailView]>,
   'get_tx_queue_of_pool' : ActorMethod<
     [string],
     Array<[string, [] | [number]]>
   >,
   'get_tx_sent' : ActorMethod<[string], [] | [TxDetailView]>,
-  'get_used_outpoints' : ActorMethod<[], Array<[string, string]>>,
+  'get_used_outpoints' : ActorMethod<[[] | [string]], Array<[string, string]>>,
   'get_zero_confirmed_tx_count_of_pool' : ActorMethod<[string], number>,
   'get_zero_confirmed_txs' : ActorMethod<[[] | [string]], Array<string>>,
   'get_zero_confirmed_utxos_of_address' : ActorMethod<
@@ -244,14 +247,21 @@ export interface _SERVICE {
   >,
   'invoke' : ActorMethod<[InvokeArgs], Result_3>,
   'new_block_detected' : ActorMethod<[NewBlockDetectedArgs], Result>,
+  'notify_exchange_for_blocks_from_height' : ActorMethod<
+    [string, number],
+    Result_4
+  >,
   'register_exchange' : ActorMethod<[ExchangeMetadata], Result>,
   'reject_tx' : ActorMethod<[string, string], Result>,
+  'rollback_tx' : ActorMethod<[string], Result_4>,
+  'rollback_tx_in_exchange' : ActorMethod<[string, string], Result>,
   'save_included_block_for_tx' : ActorMethod<
     [SaveIncludedBlockForTxArgs],
     Result
   >,
   'set_max_input_count_of_psbt' : ActorMethod<[number], Result>,
   'set_max_intentions_per_invoke' : ActorMethod<[number], Result>,
+  'set_max_received_blocks_count' : ActorMethod<[number], Result>,
   'set_max_unconfirmed_tx_count_in_pool' : ActorMethod<[number], Result>,
   'set_min_btc_amount_for_utxo' : ActorMethod<[bigint], Result>,
   'set_min_tx_confirmations' : ActorMethod<[number], Result>,

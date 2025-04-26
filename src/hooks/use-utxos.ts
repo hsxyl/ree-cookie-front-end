@@ -115,11 +115,11 @@ export function useRuneUtxos(
 export function useWalletBtcUtxos() {
   const { address, paymentAddress, paymentPublicKey } = useLaserEyes();
 
-  console.log({
-    address,
-    paymentAddress,
-    paymentPublicKey,
-  })
+  // console.log({
+  //   address,
+  //   paymentAddress,
+  //   paymentPublicKey,
+  // })
 
   const paymentUtxos = useBtcUtxos(paymentAddress, paymentPublicKey);
 

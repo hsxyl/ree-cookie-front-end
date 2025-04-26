@@ -30,7 +30,7 @@ type PublicKey = Array<number>;
 // const client = new LaserEyesClient(stores, config);
 // client.initialize();
 
-export class MyAuthClient {
+export class Bip322AuthClient {
 
     constructor(
         public identity: Identity,
@@ -41,7 +41,7 @@ export class MyAuthClient {
 
     }
 
-    public static async create(): Promise<MyAuthClient> {
+    public static async create(): Promise<Bip322AuthClient> {
         const storage = new IdbStorage();
 
         let key: null | Ed25519KeyIdentity = null;
@@ -86,6 +86,19 @@ export class MyAuthClient {
         return new this(identity, key, chain, storage);
     }
 
+    async isValidDelegationExisted() {
+        const storage = new IdbStorage();
+        let delegationExist = await storage.get(KEY_STORAGE_DELEGATION) && await storage.get(KEY_STORAGE_KEY);
+        if (!delegationExist) return false
+        let maybeIdentityStorage = await storage.get(KEY_STORAGE_KEY);
+        if (!maybeIdentityStorage) return false
+        const chainStorage = await storage.get(KEY_STORAGE_DELEGATION);
+        let chain = DelegationChain.fromJSON(chainStorage!);
+        return isDelegationValid(chain)
+
+
+    }
+
     // async loginWithUnisat(): Promise<void> {
     //     // 
     //     let key = this.key;
@@ -127,7 +140,7 @@ export class MyAuthClient {
         maxTimeToLive: bigint | undefined = BigInt(8) * BigInt(3_600_000_000_000),
     ) {
         let hex_pub_key = this.get_hex_pub_key()
-        const actor = MyAuthClient.getActor(this.identity);
+        const actor = Bip322AuthClient.getActor(this.identity);
         const arg: [string, string, string] = [address, hex_pub_key, bip322_signature]
         const res = (await actor.prepare_delegation([maxTimeToLive], {
             'Bip322': arg
@@ -184,8 +197,6 @@ export class MyAuthClient {
                     this.identity = DelegationIdentity.fromDelegation(this.key, this.chain)
                 }
                 console.log('after get delegation chain identity:', this.identity.getPrincipal().toText());
-                // ew75t-xfrj7-j2qhx-dj7ie-b7gpw-aviio-ra45c-plezf-dj27w-sn5cz-xqe
-                // index.ts:51 
                 if (this.chain) {
                     await this.storage.set(
                         KEY_STORAGE_DELEGATION,
